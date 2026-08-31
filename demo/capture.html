@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Homepage NWS Weather capture</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        align-items: center;
+        background: #1e293b;
+        display: flex;
+        justify-content: center;
+        margin: 0;
+        min-height: 100vh;
+        overflow: hidden;
+      }
+
+      #information-widgets-right {
+        align-items: center;
+        display: flex;
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="information-widgets-right"></div>
+
+    <script>
+      const variants = {
+        partly: {
+          condition: "Partly Cloudy",
+          detailedForecast: "Partly cloudy, with a low around 67. South wind around 8 mph.",
+          high: 84,
+          low: 67,
+          temperatureUnit: "F",
+          humidity: 52,
+          precipitation: 20,
+          wind: "SSE 8 mph",
+          icon: "partly-night",
+        },
+        thunder: {
+          condition: "Scattered Storms",
+          detailedForecast: "Scattered showers and thunderstorms, with a high near 81.",
+          high: 81,
+          low: 68,
+          temperatureUnit: "F",
+          humidity: 73,
+          precipitation: 60,
+          wind: "S 12 mph",
+          icon: "thunder",
+        },
+      };
+      const variant = new URLSearchParams(window.location.search).get("variant") || "partly";
+      const forecast = variants[variant] || variants.partly;
+
+      window.HOMEPAGE_NWS_WEATHER = {
+        latitude: 39.7456,
+        longitude: -97.0892,
+        locationLabel: "Demo",
+        forecastUrl: "./missing-forecast.json",
+        hourlyUrl: "./missing-hourly.json",
+        detailsUrl: "https://www.weather.gov/",
+        linkTarget: "_blank",
+      };
+
+      localStorage.setItem(
+        "homepage-nws-weather:forecast:39.7456,-97.0892:us:v1",
+        JSON.stringify({ ...forecast, updatedAt: Date.now() }),
+      );
+    </script>
+    <script src="../nws-weather.js?v=capture"></script>
+  </body>
+</html>

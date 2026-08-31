@@ -2,6 +2,11 @@
 
 ![Homepage NWS Weather preview](docs/preview.png)
 
+<p align="center">
+  <img src="docs/widget-partly-cloudy.png" alt="Partly cloudy Homepage NWS Weather widget" width="390">
+  <img src="docs/widget-thunderstorm.png" alt="Thunderstorm Homepage NWS Weather widget" width="390">
+</p>
+
 A compact [Homepage](https://gethomepage.dev/) header widget backed by the official US National Weather Service API.
 
 It shows the next high/low temperature pair, current forecast conditions, humidity, precipitation probability, and wind. It requires no account or API key and serves its artwork locally.
