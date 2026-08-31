@@ -2,7 +2,7 @@
   "use strict";
 
   const NAMESPACE = "homepage-nws-weather";
-  const VERSION = "0.1.1";
+  const VERSION = "0.1.2";
 
   if (window.__homepageNwsWeather) {
     return;
@@ -43,7 +43,7 @@
     targetSelector: userConfig.targetSelector || "#information-widgets-right",
     position: ["start", "center", "end"].includes(userConfig.position) ? userConfig.position : "center",
     linkTarget: userConfig.linkTarget || "_blank",
-    spriteUrl: userConfig.spriteUrl || new URL("weather-icons.png", scriptUrl).href,
+    spriteUrl: userConfig.spriteUrl || new URL(`weather-icons.png?v=${VERSION}`, scriptUrl).href,
     forecastUrl: userConfig.forecastUrl || null,
     hourlyUrl: userConfig.hourlyUrl || null,
     detailsUrl:

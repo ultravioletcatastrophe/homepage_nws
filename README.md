@@ -76,7 +76,7 @@ window.HOMEPAGE_NWS_WEATHER = {
   if (document.querySelector('script[data-homepage-nws-weather]')) return;
 
   const script = document.createElement("script");
-  script.src = "/nws-weather.js?v=0.1.1";
+  script.src = "/nws-weather.js?v=0.1.2";
   script.defer = true;
   script.dataset.homepageNwsWeather = "true";
   document.head.appendChild(script);
@@ -151,6 +151,16 @@ python3 -m http.server 8088
 ```
 
 Then open `http://localhost:8088/demo/`.
+
+## Sprite maintenance
+
+The icon sheet is a 4-by-3 grid. If its artwork changes, normalize every icon's visible vertical bounds with the dependency-free maintenance script:
+
+```sh
+python3 tools/normalize_sprite.py weather-icons.png weather-icons.png
+```
+
+The operation is idempotent, so a second pass reports zero movement for every cell.
 
 ## Troubleshooting
 
