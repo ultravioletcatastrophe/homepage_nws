@@ -76,7 +76,7 @@ window.HOMEPAGE_NWS_WEATHER = {
   if (document.querySelector('script[data-homepage-nws-weather]')) return;
 
   const script = document.createElement("script");
-  script.src = "/nws-weather.js?v=0.1.0";
+  script.src = "/nws-weather.js?v=0.1.1";
   script.defer = true;
   script.dataset.homepageNwsWeather = "true";
   document.head.appendChild(script);

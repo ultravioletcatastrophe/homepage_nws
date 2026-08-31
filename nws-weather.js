@@ -2,7 +2,7 @@
   "use strict";
 
   const NAMESPACE = "homepage-nws-weather";
-  const VERSION = "0.1.0";
+  const VERSION = "0.1.1";
 
   if (window.__homepageNwsWeather) {
     return;
@@ -87,7 +87,7 @@
         flex: 0 0 auto;
         gap: 0.65rem;
         min-height: 3.25rem;
-        padding: 0.3rem 0.65rem;
+        padding: 0.3rem 0.95rem 0.3rem 0.65rem;
         text-decoration: none;
       }
 
@@ -234,7 +234,7 @@
       @media (max-width: 767px) {
         #${NAMESPACE} {
           margin: 0.5rem auto 0.2rem;
-          padding: 0.3rem 0.55rem;
+          padding: 0.3rem 0.85rem 0.3rem 0.55rem;
         }
 
         .homepage-nws-weather__summary {
