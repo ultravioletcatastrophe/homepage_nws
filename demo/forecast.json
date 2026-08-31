@@ -1,0 +1,22 @@
+{
+  "properties": {
+    "periods": [
+      {
+        "name": "Tonight",
+        "isDaytime": false,
+        "temperature": 67,
+        "temperatureUnit": "F",
+        "shortForecast": "Partly Cloudy",
+        "detailedForecast": "Partly cloudy, with a low around 67. South wind around 8 mph."
+      },
+      {
+        "name": "Monday",
+        "isDaytime": true,
+        "temperature": 84,
+        "temperatureUnit": "F",
+        "shortForecast": "Mostly Sunny",
+        "detailedForecast": "Mostly sunny, with a high near 84."
+      }
+    ]
+  }
+}

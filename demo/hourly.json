@@ -1,0 +1,23 @@
+{
+  "properties": {
+    "periods": [
+      {
+        "isDaytime": false,
+        "temperature": 76,
+        "temperatureUnit": "F",
+        "probabilityOfPrecipitation": {
+          "unitCode": "wmoUnit:percent",
+          "value": 20
+        },
+        "relativeHumidity": {
+          "unitCode": "wmoUnit:percent",
+          "value": 52
+        },
+        "windSpeed": "8 mph",
+        "windDirection": "SSE",
+        "shortForecast": "Partly Cloudy",
+        "detailedForecast": ""
+      }
+    ]
+  }
+}

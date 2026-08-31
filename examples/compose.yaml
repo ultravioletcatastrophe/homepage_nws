@@ -1,0 +1,13 @@
+services:
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    ports:
+      - "3000:3000"
+    volumes:
+      - /path/to/homepage/config:/app/config
+      - /path/to/homepage/config/nws-weather.js:/app/public/nws-weather.js:ro
+      - /path/to/homepage/config/weather-icons.png:/app/public/weather-icons.png:ro
+    environment:
+      HOMEPAGE_ALLOWED_HOSTS: "*"
+    restart: unless-stopped
