@@ -9,7 +9,7 @@
 
 A compact [Homepage](https://gethomepage.dev/) header widget backed by the official US National Weather Service API.
 
-It shows the next high/low temperature pair, current forecast conditions, humidity, precipitation probability, and wind. It requires no account or API key and serves its artwork locally.
+It shows the current temperature, the next high/low pair, current forecast conditions, humidity, precipitation probability, and wind. It requires no account or API key and serves its artwork locally.
 
 ## Features
 
@@ -76,7 +76,7 @@ window.HOMEPAGE_NWS_WEATHER = {
   if (document.querySelector('script[data-homepage-nws-weather]')) return;
 
   const script = document.createElement("script");
-  script.src = "/nws-weather.js?v=0.1.2";
+  script.src = "/nws-weather.js?v=0.1.3";
   script.defer = true;
   script.dataset.homepageNwsWeather = "true";
   document.head.appendChild(script);

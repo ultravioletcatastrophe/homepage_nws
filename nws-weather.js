@@ -2,7 +2,7 @@
   "use strict";
 
   const NAMESPACE = "homepage-nws-weather";
-  const VERSION = "0.1.2";
+  const VERSION = "0.1.3";
 
   if (window.__homepageNwsWeather) {
     return;
@@ -106,11 +106,6 @@
         margin-right: 0;
       }
 
-      #${NAMESPACE}:hover .homepage-nws-weather__condition,
-      #${NAMESPACE}:focus-visible .homepage-nws-weather__condition {
-        opacity: 1;
-      }
-
       #${NAMESPACE}:focus-visible {
         outline: 1px solid var(--homepage-nws-border);
         outline-offset: 4px;
@@ -179,32 +174,21 @@
         min-width: 6.5rem;
       }
 
-      .homepage-nws-weather__range {
-        align-items: baseline;
-        display: flex;
+      .homepage-nws-weather__temperature {
+        display: block;
         font-size: 1.15rem;
         font-weight: 500;
-        gap: 0.25rem;
         line-height: 1.1;
         white-space: nowrap;
       }
 
-      .homepage-nws-weather__low {
-        font-size: 0.9rem;
-        font-weight: 400;
-        opacity: 0.62;
-      }
-
-      .homepage-nws-weather__condition {
+      .homepage-nws-weather__range {
         display: block;
         font-size: 0.68rem;
+        font-weight: 400;
         line-height: 1.2;
-        margin-top: 0.2rem;
-        max-width: 8.5rem;
+        margin-top: 0.1rem;
         opacity: 0.62;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        transition: opacity 120ms ease;
         white-space: nowrap;
       }
 
@@ -227,8 +211,13 @@
       }
 
       .homepage-nws-weather__metric-icon {
-        height: 1.1rem;
-        width: 1.1rem;
+        height: 1.3rem;
+        width: 1.3rem;
+      }
+
+      .homepage-nws-weather__metric-svg {
+        display: block;
+        overflow: visible;
       }
 
       @media (max-width: 767px) {
@@ -243,12 +232,6 @@
 
         .homepage-nws-weather__metrics {
           gap: 0.35rem;
-        }
-      }
-
-      @media (prefers-reduced-motion: reduce) {
-        .homepage-nws-weather__condition {
-          transition: none;
         }
       }
     `;
@@ -266,6 +249,7 @@
     root.style.setProperty("--homepage-nws-background", CONFIG.background);
     root.style.setProperty("--homepage-nws-border", CONFIG.border);
     root.style.setProperty("--homepage-nws-text", CONFIG.text);
+    root.setAttribute("aria-label", `${CONFIG.locationLabel} weather loading`);
 
     if (CONFIG.linkTarget === "_blank") {
       root.rel = "noreferrer";
@@ -274,15 +258,25 @@
     root.innerHTML = `
       <span class="homepage-nws-weather__icon homepage-nws-weather__art" data-role="condition-icon" data-icon="partly-day" aria-hidden="true"></span>
       <span class="homepage-nws-weather__summary">
+        <span class="homepage-nws-weather__temperature" data-role="temperature">--°</span>
         <span class="homepage-nws-weather__range">
-          <span data-role="high">--°</span>
-          <span class="homepage-nws-weather__low" data-role="low">/ --°</span>
+          <span data-role="high">--°</span> / <span data-role="low">--°</span>
         </span>
-        <span class="homepage-nws-weather__condition" data-role="condition">Weather</span>
       </span>
       <span class="homepage-nws-weather__metrics">
         <span class="homepage-nws-weather__metric" data-role="humidity-wrap">
-          <span class="homepage-nws-weather__icon homepage-nws-weather__metric-icon" data-icon="humidity" aria-hidden="true"></span>
+          <svg class="homepage-nws-weather__metric-icon homepage-nws-weather__metric-svg" viewBox="0 0 48 48" aria-hidden="true">
+            <defs>
+              <linearGradient id="homepage-nws-humidity-fill" x1="12" y1="8" x2="37" y2="41" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#f7fbff"></stop>
+                <stop offset="1" stop-color="#8fdcf2"></stop>
+              </linearGradient>
+            </defs>
+            <path d="M24 4.5C20.2 10.4 11.5 21.1 11.5 30.1a12.5 12.5 0 0 0 25 0C36.5 21.1 27.8 10.4 24 4.5Z" fill="url(#homepage-nws-humidity-fill)" stroke="#163d70" stroke-width="2"></path>
+            <circle cx="20" cy="27" r="2.2" fill="none" stroke="#163d70" stroke-width="1.8"></circle>
+            <circle cx="28" cy="34" r="2.2" fill="none" stroke="#163d70" stroke-width="1.8"></circle>
+            <path d="m19.5 35 9-10" fill="none" stroke="#163d70" stroke-linecap="round" stroke-width="1.8"></path>
+          </svg>
           <span data-role="humidity">--%</span>
         </span>
         <span class="homepage-nws-weather__metric" data-role="precipitation-wrap">
@@ -290,7 +284,20 @@
           <span data-role="precipitation">--%</span>
         </span>
         <span class="homepage-nws-weather__metric" data-role="wind-wrap">
-          <span class="homepage-nws-weather__icon homepage-nws-weather__metric-icon" data-icon="wind" aria-hidden="true"></span>
+          <svg class="homepage-nws-weather__metric-icon homepage-nws-weather__metric-svg" viewBox="0 0 48 48" aria-hidden="true">
+            <defs>
+              <clipPath id="homepage-nws-windsock-clip">
+                <path d="M14 9c8.8 0 17 2.2 25 6.6l-4 10.2c-7.1-3.6-14-5.1-21-4.7Z"></path>
+              </clipPath>
+            </defs>
+            <path d="M14 9c8.8 0 17 2.2 25 6.6l-4 10.2c-7.1-3.6-14-5.1-21-4.7Z" fill="#f7fbff"></path>
+            <g clip-path="url(#homepage-nws-windsock-clip)" fill="#ff7657">
+              <path d="M13 7h9l-1.5 16H13Z"></path>
+              <path d="m29 10 8 2.7-3.8 14.4-7.4-2.7Z"></path>
+            </g>
+            <path d="M14 9c8.8 0 17 2.2 25 6.6l-4 10.2c-7.1-3.6-14-5.1-21-4.7Z" fill="none" stroke="#163d70" stroke-linejoin="round" stroke-width="2"></path>
+            <path d="M14 8v33M8.5 41h11" fill="none" stroke="#163d70" stroke-linecap="round" stroke-width="2"></path>
+          </svg>
           <span data-role="wind">--</span>
         </span>
       </span>
@@ -299,8 +306,6 @@
     root.querySelectorAll(".homepage-nws-weather__icon").forEach((icon) => {
       icon.style.backgroundImage = `url(${JSON.stringify(CONFIG.spriteUrl)})`;
     });
-    root.querySelector('[data-role="condition"]').textContent = CONFIG.locationLabel;
-
     return root;
   }
 
@@ -379,6 +384,11 @@
     const daytime = candidates.find((period) => period.isDaytime);
     const nighttime = candidates.find((period) => !period.isDaytime);
     const temperatures = [daytime?.temperature, nighttime?.temperature].filter(Number.isFinite);
+    const temperature = hourlyPeriod.temperature;
+
+    if (!Number.isFinite(temperature)) {
+      throw new Error("NWS returned no current temperature");
+    }
 
     if (temperatures.length === 0) {
       throw new Error("NWS returned no temperatures");
@@ -391,9 +401,10 @@
     return {
       condition: hourlyPeriod.shortForecast || forecastPeriods[0].shortForecast || state.locationLabel,
       detailedForecast: forecastPeriods[0].detailedForecast || "",
+      temperature,
       high: Math.max(...temperatures),
       low: Math.min(...temperatures),
-      temperatureUnit: daytime?.temperatureUnit || nighttime?.temperatureUnit || hourlyPeriod.temperatureUnit || "F",
+      temperatureUnit: hourlyPeriod.temperatureUnit || daytime?.temperatureUnit || nighttime?.temperatureUnit || "F",
       humidity: Number.isFinite(humidity) ? Math.round(humidity) : null,
       precipitation: Number.isFinite(precipitation) ? Math.round(precipitation) : null,
       wind: wind || "Calm",
@@ -409,9 +420,9 @@
       return;
     }
 
+    setText("temperature", `${data.temperature}°`);
     setText("high", `${data.high}°`);
-    setText("low", `/ ${data.low}°`);
-    setText("condition", data.condition);
+    setText("low", `${data.low}°`);
     setText("humidity", data.humidity === null ? "--" : `${data.humidity}%`);
     setText("precipitation", data.precipitation === null ? "--" : `${data.precipitation}%`);
     setText("wind", data.wind);
@@ -427,7 +438,7 @@
       hour: "numeric",
       minute: "2-digit",
     });
-    const summary = `${state.locationLabel} weather: ${data.condition}. High ${data.high} degrees ${unitName}, low ${data.low} degrees ${unitName}. Humidity ${data.humidity ?? "unavailable"} percent. Precipitation ${data.precipitation ?? "unavailable"} percent. Wind ${data.wind}.`;
+    const summary = `${state.locationLabel} weather: ${data.condition}. Current temperature ${data.temperature} degrees ${unitName}. High ${data.high} degrees ${unitName}, low ${data.low} degrees ${unitName}. Humidity ${data.humidity ?? "unavailable"} percent. Precipitation ${data.precipitation ?? "unavailable"} percent. Wind ${data.wind}.`;
     const title = [
       data.detailedForecast,
       `${stale ? "Cached NWS forecast from" : "NWS forecast updated"} ${updated}`,
@@ -463,8 +474,9 @@
     const cached = readStorage(CONFIG.weatherCacheKey);
 
     if (
-      cached?.high !== undefined &&
-      cached?.low !== undefined &&
+      Number.isFinite(cached?.temperature) &&
+      Number.isFinite(cached?.high) &&
+      Number.isFinite(cached?.low) &&
       Date.now() - cached.updatedAt <= CONFIG.weatherCacheMs
     ) {
       return cached;
@@ -582,8 +594,9 @@
       if (state.data) {
         render(state.data, true);
       } else {
-        setText("condition", "Forecast unavailable");
-        document.getElementById(NAMESPACE)?.setAttribute("title", "The NWS forecast could not be loaded.");
+        const root = document.getElementById(NAMESPACE);
+        root?.setAttribute("aria-label", `${state.locationLabel} weather forecast unavailable`);
+        root?.setAttribute("title", "The NWS forecast could not be loaded.");
       }
 
       scheduleRefresh(CONFIG.retryMs);
