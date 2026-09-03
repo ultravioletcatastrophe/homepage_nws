@@ -1,0 +1,26 @@
+/* Desktop top-row proportions. Adjust these three numbers to taste. */
+.home-top-row {
+  --uptime-width: 5;
+  --weather-width: 3;
+  --clock-width: 2;
+}
+
+@media (min-width: 1191px) {
+  .home-top-row > .widget-content > .masonry > .masonry-column:nth-child(1) { flex-grow: var(--uptime-width); }
+  .home-top-row > .widget-content > .masonry > .masonry-column:nth-child(2) { flex-grow: var(--weather-width); }
+  .home-top-row > .widget-content > .masonry > .masonry-column:nth-child(3) { flex-grow: var(--clock-width); }
+
+  .home-top-row > .widget-content > .masonry > .masonry-column > .widget {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+  }
+
+  .home-top-row > .widget-content > .masonry > .masonry-column > .widget > .widget-content {
+    flex: 1;
+  }
+
+  .home-top-row .nws-weather {
+    height: 100%;
+  }
+}

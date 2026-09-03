@@ -11,6 +11,12 @@ A compact [Homepage](https://gethomepage.dev/) header widget backed by the offic
 
 It shows the current temperature, the next high/low pair, current forecast conditions, humidity, precipitation probability, wind, and whichever comes next: sunrise or sunset. It requires no account or API key and serves its artwork locally.
 
+## Glance option
+
+![Glance top row with server uptime, NWS Weather, and clock](docs/glance-top-row-desktop.png)
+
+The [`glance/`](glance/README.md) directory contains a server-rendered Glance `custom-api` port with the same forecast data and artwork. It includes responsive installation instructions and an optional equal-height, tunable-width layout for placing server uptime, weather, and clock widgets in one row.
+
 ## Features
 
 - Official NWS forecast data from `api.weather.gov`

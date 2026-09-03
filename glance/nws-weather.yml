@@ -1,0 +1,361 @@
+- type: custom-api
+  title: NWS Weather
+  hide-header: true
+  frameless: true
+  cache: 30m
+  options:
+    latitude: "${NWS_LATITUDE}"
+    longitude: "${NWS_LONGITUDE}"
+    location-label: Home
+    units: us
+    sprite-url: assets/weather-icons.png
+    background: "#eaf7fb"
+    border: "#367b98"
+    text: "#173652"
+  template: |
+    {{/* Glance v0.8.0+ is required for newRequest/getResponse. */}}
+    {{ $latitude := .Options.StringOr "latitude" "" }}
+    {{ $longitude := .Options.StringOr "longitude" "" }}
+    {{/* NWS accepts no more than four decimal places. Keeping the inputs as
+         strings also supports integer coordinates such as 40 and -90. */}}
+    {{ $nwsLatitude := findMatch "^-?[0-9]+(\\.[0-9]{1,4})?" $latitude }}
+    {{ $nwsLongitude := findMatch "^-?[0-9]+(\\.[0-9]{1,4})?" $longitude }}
+    {{ $locationLabel := .Options.StringOr "location-label" "" }}
+    {{ $units := .Options.StringOr "units" "us" }}
+    {{ if ne $units "si" }}{{ $units = "us" }}{{ end }}
+    {{ $spriteURL := .Options.StringOr "sprite-url" "assets/weather-icons.png" }}
+    {{ $background := .Options.StringOr "background" "#eaf7fb" }}
+    {{ $border := .Options.StringOr "border" "#367b98" }}
+    {{ $text := .Options.StringOr "text" "#173652" }}
+    {{ $userAgent := "homepage-nws-weather/0.1.4 (+https://github.com/ultravioletcatastrophe/homepage_nws)" }}
+
+    {{ $pointURL := printf "https://api.weather.gov/points/%s,%s" $nwsLatitude $nwsLongitude }}
+    {{
+      $point := newRequest $pointURL
+        | withHeader "Accept" "application/geo+json"
+        | withHeader "User-Agent" $userAgent
+        | getResponse
+    }}
+    {{ if ne $point.Response.StatusCode 200 }}{{ index ($point.JSON.Array "__intentional_update_failure__") 0 }}{{ end }}
+
+    {{ $forecastURL := $point.JSON.String "properties.forecast" }}
+    {{ $hourlyURL := $point.JSON.String "properties.forecastHourly" }}
+    {{ $timeZone := $point.JSON.String "properties.timeZone" }}
+
+    {{ if eq $locationLabel "" }}
+      {{ $city := $point.JSON.String "properties.relativeLocation.properties.city" }}
+      {{ $state := $point.JSON.String "properties.relativeLocation.properties.state" }}
+      {{ $locationLabel = $city }}
+      {{ if and $city $state }}{{ $locationLabel = printf "%s, %s" $city $state }}{{ end }}
+      {{ if eq $locationLabel "" }}{{ $locationLabel = "Local weather" }}{{ end }}
+    {{ end }}
+
+    {{
+      $forecast := newRequest $forecastURL
+        | withParameter "units" $units
+        | withHeader "Accept" "application/geo+json"
+        | withHeader "User-Agent" $userAgent
+        | getResponse
+    }}
+    {{
+      $hourly := newRequest $hourlyURL
+        | withParameter "units" $units
+        | withHeader "Accept" "application/geo+json"
+        | withHeader "User-Agent" $userAgent
+        | getResponse
+    }}
+
+    {{/* Indexing here intentionally fails the render when either endpoint has no periods.
+         Glance will retain the previous successful render and schedule an early retry. */}}
+    {{ $forecastPeriods := $forecast.JSON.Array "properties.periods" }}
+    {{ $hourlyPeriods := $hourly.JSON.Array "properties.periods" }}
+    {{ $firstForecast := index $forecastPeriods 0 }}
+    {{ $current := index $hourlyPeriods 0 }}
+
+    {{ $condition := $current.String "shortForecast" }}
+    {{ if eq $condition "" }}{{ $condition = $firstForecast.String "shortForecast" }}{{ end }}
+    {{ if eq $condition "" }}{{ $condition = $locationLabel }}{{ end }}
+    {{ $details := $firstForecast.String "detailedForecast" }}
+    {{/* Force an update failure for missing temperature data. Zero is valid, so
+         check the raw string before converting it. */}}
+    {{ if eq ($current.String "temperature") "" }}{{ index $hourlyPeriods (len $hourlyPeriods) }}{{ end }}
+    {{ $temperature := $current.Int "temperature" }}
+    {{ $temperatureUnit := $current.String "temperatureUnit" }}
+    {{ if eq $temperatureUnit "" }}{{ if eq $units "si" }}{{ $temperatureUnit = "C" }}{{ else }}{{ $temperatureUnit = "F" }}{{ end }}{{ end }}
+
+    {{ $high := 0 }}
+    {{ $low := 0 }}
+    {{ $haveTemperature := false }}
+    {{ $haveDaytime := false }}
+    {{ $haveNighttime := false }}
+    {{ range $index, $period := $forecastPeriods }}
+      {{ $usePeriod := false }}
+      {{ if and (lt $index 4) ($period.Bool "isDaytime") (not $haveDaytime) (ne ($period.String "temperature") "") }}
+        {{ $haveDaytime = true }}
+        {{ $usePeriod = true }}
+      {{ else if and (lt $index 4) (not ($period.Bool "isDaytime")) (not $haveNighttime) (ne ($period.String "temperature") "") }}
+        {{ $haveNighttime = true }}
+        {{ $usePeriod = true }}
+      {{ end }}
+      {{ if $usePeriod }}
+        {{ $candidate := $period.Int "temperature" }}
+        {{ if not $haveTemperature }}
+          {{ $high = $candidate }}
+          {{ $low = $candidate }}
+          {{ $haveTemperature = true }}
+        {{ else }}
+          {{ if gt $candidate $high }}{{ $high = $candidate }}{{ end }}
+          {{ if lt $candidate $low }}{{ $low = $candidate }}{{ end }}
+        {{ end }}
+      {{ end }}
+    {{ end }}
+    {{ if not $haveTemperature }}{{ index $forecastPeriods (len $forecastPeriods) }}{{ end }}
+    {{ $highText := "--" }}
+    {{ $lowText := "--" }}
+    {{ if $haveTemperature }}
+      {{ $highText = printf "%d°" $high }}
+      {{ $lowText = printf "%d°" $low }}
+    {{ end }}
+
+    {{ $humidity := "--" }}
+    {{ if ne ($current.String "relativeHumidity.value") "" }}
+      {{ $humidity = printf "%.0f%%" ($current.Float "relativeHumidity.value") }}
+    {{ end }}
+    {{ $precipitation := "--" }}
+    {{ if ne ($current.String "probabilityOfPrecipitation.value") "" }}
+      {{ $precipitation = printf "%.0f%%" ($current.Float "probabilityOfPrecipitation.value") }}
+    {{ end }}
+    {{ $windDirection := $current.String "windDirection" }}
+    {{ $windSpeed := $current.String "windSpeed" }}
+    {{ $wind := "Calm" }}
+    {{ if and $windDirection $windSpeed }}
+      {{ $wind = printf "%s %s" $windDirection $windSpeed }}
+    {{ else if $windSpeed }}
+      {{ $wind = $windSpeed }}
+    {{ end }}
+
+    {{ $iconText := $condition }}
+    {{ $icon := "clear-day" }}
+    {{ if not ($current.Bool "isDaytime") }}{{ $icon = "clear-night" }}{{ end }}
+    {{ if ne (findMatch "(?i)(snow|sleet|ice pellets|blizzard)" $iconText) "" }}
+      {{ $icon = "snow" }}
+    {{ else if ne (findMatch "(?i)(thunder|lightning)" $iconText) "" }}
+      {{ $icon = "thunder" }}
+    {{ else if ne (findMatch "(?i)(rain|shower|drizzle)" $iconText) "" }}
+      {{ $icon = "rain" }}
+    {{ else if ne (findMatch "(?i)(fog|haze|mist|smoke)" $iconText) "" }}
+      {{ $icon = "fog" }}
+    {{ else if and (ne (findMatch "(?i)(overcast|cloudy)" $iconText) "") (eq (findMatch "(?i)(partly|mostly sunny|mostly clear|few clouds)" $iconText) "") }}
+      {{ $icon = "cloudy" }}
+    {{ else if ne (findMatch "(?i)(partly|mostly sunny|mostly clear|few clouds)" $iconText) "" }}
+      {{ if $current.Bool "isDaytime" }}{{ $icon = "partly-day" }}{{ else }}{{ $icon = "partly-night" }}{{ end }}
+    {{ end }}
+
+    {{ $unitName := "Fahrenheit" }}
+    {{ if eq $temperatureUnit "C" }}{{ $unitName = "Celsius" }}{{ end }}
+    {{ $summary := printf "%s weather: %s. Current temperature %d degrees %s. High %s, low %s. Humidity %s. Precipitation %s. Wind %s." $locationLabel $condition $temperature $unitName $highText $lowText $humidity $precipitation $wind }}
+    {{ $detailsURL := printf "https://forecast.weather.gov/MapClick.php?lat=%s&lon=%s" $latitude $longitude }}
+    {{ $inlineStyle := printf "--nws-weather-background:%s;--nws-weather-border:%s;--nws-weather-text:%s" $background $border $text }}
+
+    <style>
+      .nws-weather {
+        align-items: center;
+        background: var(--nws-weather-background);
+        border: 1px solid var(--nws-weather-border);
+        border-radius: 0.8rem;
+        color: var(--nws-weather-text);
+        display: grid;
+        gap: 0.65rem;
+        grid-template-columns: 6rem 6rem minmax(0, 1fr);
+        margin-inline: auto;
+        min-height: 7.5rem;
+        padding: 0.35rem 0.9rem 0.35rem 0.65rem;
+        text-decoration: none;
+        width: 100%;
+      }
+
+      .nws-weather:focus-visible {
+        outline: 2px solid var(--nws-weather-border);
+        outline-offset: 3px;
+      }
+
+      .nws-weather__sprite {
+        display: block;
+        flex: 0 0 auto;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .nws-weather__sprite > img {
+        height: auto;
+        left: var(--nws-weather-sprite-left, 0%);
+        max-width: none;
+        position: absolute;
+        top: var(--nws-weather-sprite-top, 0%);
+        width: 400%;
+      }
+
+      .nws-weather__sprite[data-icon="clear-day"] { --nws-weather-sprite-left: 0%; --nws-weather-sprite-top: 0%; }
+      .nws-weather__sprite[data-icon="clear-night"] { --nws-weather-sprite-left: -100%; --nws-weather-sprite-top: 0%; }
+      .nws-weather__sprite[data-icon="partly-day"] { --nws-weather-sprite-left: -200%; --nws-weather-sprite-top: 0%; }
+      .nws-weather__sprite[data-icon="partly-night"] { --nws-weather-sprite-left: -300%; --nws-weather-sprite-top: 0%; }
+      .nws-weather__sprite[data-icon="cloudy"] { --nws-weather-sprite-left: 0%; --nws-weather-sprite-top: -100%; }
+      .nws-weather__sprite[data-icon="rain"] { --nws-weather-sprite-left: -100%; --nws-weather-sprite-top: -100%; }
+      .nws-weather__sprite[data-icon="thunder"] { --nws-weather-sprite-left: -200%; --nws-weather-sprite-top: -100%; }
+      .nws-weather__sprite[data-icon="snow"] { --nws-weather-sprite-left: -300%; --nws-weather-sprite-top: -100%; }
+      .nws-weather__sprite[data-icon="fog"] { --nws-weather-sprite-left: 0%; --nws-weather-sprite-top: -200%; }
+      .nws-weather__sprite[data-icon="precipitation"] { --nws-weather-sprite-left: -200%; --nws-weather-sprite-top: -200%; }
+
+      .nws-weather__art {
+        height: 6rem;
+        width: 6rem;
+      }
+
+      .nws-weather__temperature {
+        display: block;
+        font-size: 2.5rem;
+        font-weight: 600;
+        line-height: 1.05;
+        white-space: nowrap;
+      }
+
+      .nws-weather__range {
+        display: block;
+        font-size: 1.36rem;
+        line-height: 1.2;
+        margin-top: 0.15rem;
+        opacity: 0.65;
+        white-space: nowrap;
+      }
+
+      .nws-weather__metrics {
+        align-items: start;
+        display: grid;
+        gap: 0.25rem;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        justify-self: end;
+        min-width: 0;
+        width: min(100%, 27rem);
+      }
+
+      .nws-weather__metric {
+        align-items: center;
+        display: flex;
+        flex-direction: column;
+        font-size: 1.34rem;
+        gap: 0.12rem;
+        line-height: 1;
+        min-width: 0;
+        opacity: 0.78;
+        white-space: nowrap;
+      }
+
+      .nws-weather__metric-value {
+        display: block;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .nws-weather__metric-icon {
+        height: 3rem;
+        width: 3rem;
+      }
+
+      .nws-weather__solar-icon[data-event="sunrise"] [data-event="sunset"],
+      .nws-weather__solar-icon[data-event="sunset"] [data-event="sunrise"] {
+        display: none;
+      }
+
+      @container widget (max-width: 330px) {
+        .nws-weather {
+          gap: 0.4rem;
+          grid-template-columns: 5.3rem 5.5rem minmax(0, 1fr);
+          padding-inline: 0.45rem;
+        }
+
+        .nws-weather__art {
+          height: 5.3rem;
+          width: 5.3rem;
+        }
+
+        .nws-weather__metrics {
+          gap: 0.1rem;
+        }
+
+        .nws-weather__metric {
+          font-size: 1.24rem;
+        }
+      }
+    </style>
+
+    <a
+      class="nws-weather"
+      href="{{ $detailsURL | safeURL }}"
+      target="_blank"
+      rel="noreferrer"
+      style="{{ $inlineStyle | safeCSS }}"
+      title="{{ $details }}"
+      aria-label="{{ $summary }}"
+      data-latitude="{{ $latitude }}"
+      data-longitude="{{ $longitude }}"
+      data-time-zone="{{ $timeZone }}"
+    >
+      <span class="nws-weather__sprite nws-weather__art" data-icon="{{ $icon }}" aria-hidden="true">
+        <img src="{{ $spriteURL | safeURL }}" alt="">
+      </span>
+
+      <span class="nws-weather__summary" aria-hidden="true">
+        <span class="nws-weather__temperature">{{ $temperature }}°</span>
+        <span class="nws-weather__range">{{ $highText }}/{{ $lowText }}</span>
+      </span>
+
+      <span class="nws-weather__metrics" aria-hidden="true">
+        <span class="nws-weather__metric" data-role="solar-wrap">
+          <svg class="nws-weather__metric-icon nws-weather__solar-icon" data-role="solar-icon" data-event="sunrise" viewBox="0 0 48 48">
+            <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
+              <path d="M24 4v4M10.5 9.5l3 3M37.5 9.5l-3 3M5 23h4M39 23h4"></path>
+              <circle cx="24" cy="23" r="10" fill="#ffd42a"></circle>
+              <path data-event="sunrise" d="M24 42V23M17.5 29.5 24 23l6.5 6.5" stroke-width="2.6"></path>
+              <path data-event="sunset" d="M24 23v19M17.5 35.5 24 42l6.5-6.5" stroke-width="2.6"></path>
+            </g>
+          </svg>
+          <span class="nws-weather__metric-value" data-role="solar-time">--</span>
+        </span>
+
+        <span class="nws-weather__metric" title="Humidity {{ $humidity }}">
+          <svg class="nws-weather__metric-icon" viewBox="0 0 48 48">
+            <path d="M24 4.5C20.2 10.4 11.5 21.1 11.5 30.1a12.5 12.5 0 0 0 25 0C36.5 21.1 27.8 10.4 24 4.5Z" fill="#8fdcf2" stroke="currentColor" stroke-width="2"></path>
+            <circle cx="20" cy="27" r="2.2" fill="none" stroke="currentColor" stroke-width="1.8"></circle>
+            <circle cx="28" cy="34" r="2.2" fill="none" stroke="currentColor" stroke-width="1.8"></circle>
+            <path d="m19.5 35 9-10" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8"></path>
+          </svg>
+          <span class="nws-weather__metric-value">{{ $humidity }}</span>
+        </span>
+
+        <span class="nws-weather__metric" title="Precipitation {{ $precipitation }}">
+          <span class="nws-weather__sprite nws-weather__metric-icon" data-icon="precipitation">
+            <img src="{{ $spriteURL | safeURL }}" alt="">
+          </span>
+          <span class="nws-weather__metric-value">{{ $precipitation }}</span>
+        </span>
+
+        <span class="nws-weather__metric" title="Wind {{ $wind }}">
+          <svg class="nws-weather__metric-icon" viewBox="0 0 48 48">
+            <defs>
+              <clipPath id="nws-weather-windsock-clip">
+                <path d="M14 9c8.8 0 17 2.2 25 6.6l-4 10.2c-7.1-3.6-14-5.1-21-4.7Z"></path>
+              </clipPath>
+            </defs>
+            <path d="M14 9c8.8 0 17 2.2 25 6.6l-4 10.2c-7.1-3.6-14-5.1-21-4.7Z" fill="#f7fbff"></path>
+            <g clip-path="url(#nws-weather-windsock-clip)" fill="#ff7657">
+              <path d="M13 7h9l-1.5 16H13Z"></path>
+              <path d="m29 10 8 2.7-3.8 14.4-7.4-2.7Z"></path>
+            </g>
+            <path d="M14 9c8.8 0 17 2.2 25 6.6l-4 10.2c-7.1-3.6-14-5.1-21-4.7Z" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="2"></path>
+            <path d="M14 8v33M8.5 41h11" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2"></path>
+          </svg>
+          <span class="nws-weather__metric-value">{{ $wind }}</span>
+        </span>
+      </span>
+    </a>
