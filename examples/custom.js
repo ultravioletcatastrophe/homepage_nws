@@ -12,7 +12,7 @@ window.HOMEPAGE_NWS_WEATHER = {
   }
 
   const script = document.createElement("script");
-  script.src = "/nws-weather.js?v=0.1.3";
+  script.src = "/nws-weather.js?v=0.1.4";
   script.defer = true;
   script.dataset.homepageNwsWeather = "true";
   document.head.appendChild(script);

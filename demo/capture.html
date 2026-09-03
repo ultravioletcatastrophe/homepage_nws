@@ -80,6 +80,7 @@
         latitude: 39.7456,
         longitude: -97.0892,
         locationLabel: "Demo",
+        timeZone: "America/Chicago",
         forecastUrl: "./missing-forecast.json",
         hourlyUrl: "./missing-hourly.json",
         detailsUrl: "https://www.weather.gov/",
@@ -88,7 +89,11 @@
 
       localStorage.setItem(
         "homepage-nws-weather:forecast:39.7456,-97.0892:us:v1",
-        JSON.stringify({ ...forecast, updatedAt: Date.now() }),
+        JSON.stringify({
+          ...forecast,
+          solarEvent: { type: "sunset", time: "8:00 PM" },
+          updatedAt: Date.now(),
+        }),
       );
     </script>
     <script src="../nws-weather.js?v=capture"></script>

@@ -9,7 +9,7 @@
 
 A compact [Homepage](https://gethomepage.dev/) header widget backed by the official US National Weather Service API.
 
-It shows the current temperature, the next high/low pair, current forecast conditions, humidity, precipitation probability, and wind. It requires no account or API key and serves its artwork locally.
+It shows the current temperature, the next high/low pair, current forecast conditions, humidity, precipitation probability, wind, and whichever comes next: sunrise or sunset. It requires no account or API key and serves its artwork locally.
 
 ## Features
 
@@ -76,7 +76,7 @@ window.HOMEPAGE_NWS_WEATHER = {
   if (document.querySelector('script[data-homepage-nws-weather]')) return;
 
   const script = document.createElement("script");
-  script.src = "/nws-weather.js?v=0.1.3";
+  script.src = "/nws-weather.js?v=0.1.4";
   script.defer = true;
   script.dataset.homepageNwsWeather = "true";
   document.head.appendChild(script);
@@ -102,6 +102,7 @@ Set `window.HOMEPAGE_NWS_WEATHER` before loading `nws-weather.js`.
 | `latitude` | required | Latitude from `-90` to `90` |
 | `longitude` | required | Longitude from `-180` to `180` |
 | `locationLabel` | NWS city/state | Accessible location label and loading text |
+| `timeZone` | NWS location | IANA time zone used to display sunrise and sunset; normally discovered automatically |
 | `units` | `"us"` | NWS unit system: `"us"` or `"si"` |
 | `position` | `"center"` | Placement inside the target: `"start"`, `"center"`, or `"end"` |
 | `targetSelector` | `"#information-widgets-right"` | Element that receives the widget |

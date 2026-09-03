@@ -2,7 +2,7 @@
   "use strict";
 
   const NAMESPACE = "homepage-nws-weather";
-  const VERSION = "0.1.3";
+  const VERSION = "0.1.4";
 
   if (window.__homepageNwsWeather) {
     return;
@@ -33,6 +33,21 @@
     return Number.isFinite(number) ? Math.max(number, minimum) : fallback;
   }
 
+  function validTimeZone(value) {
+    if (!value) {
+      return null;
+    }
+
+    try {
+      new Intl.DateTimeFormat("en-US", { timeZone: value }).format();
+      return value;
+    } catch {
+      return null;
+    }
+  }
+
+  const configuredTimeZone = validTimeZone(userConfig.timeZone);
+
   const locationKey = hasCoordinates ? `${latitude.toFixed(4)},${longitude.toFixed(4)}` : "custom";
   const units = userConfig.units === "si" ? "si" : "us";
   const CONFIG = {
@@ -46,6 +61,7 @@
     spriteUrl: userConfig.spriteUrl || new URL(`weather-icons.png?v=${VERSION}`, scriptUrl).href,
     forecastUrl: userConfig.forecastUrl || null,
     hourlyUrl: userConfig.hourlyUrl || null,
+    timeZone: configuredTimeZone || validTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone) || "UTC",
     detailsUrl:
       userConfig.detailsUrl ||
       (hasCoordinates
@@ -66,7 +82,9 @@
   const state = {
     data: null,
     locationLabel: CONFIG.locationLabel,
+    timeZone: CONFIG.timeZone,
     refreshTimer: null,
+    solarTimer: null,
   };
 
   function addStyles() {
@@ -171,7 +189,7 @@
       }
 
       .homepage-nws-weather__summary {
-        min-width: 6.5rem;
+        min-width: 3.375rem;
       }
 
       .homepage-nws-weather__temperature {
@@ -195,7 +213,7 @@
       .homepage-nws-weather__metrics {
         align-items: start;
         display: flex;
-        gap: 0.55rem;
+        gap: 0.36rem;
       }
 
       .homepage-nws-weather__metric {
@@ -220,6 +238,11 @@
         overflow: visible;
       }
 
+      .homepage-nws-weather__solar-icon[data-event="sunrise"] [data-event="sunset"],
+      .homepage-nws-weather__solar-icon[data-event="sunset"] [data-event="sunrise"] {
+        display: none;
+      }
+
       @media (max-width: 767px) {
         #${NAMESPACE} {
           margin: 0.5rem auto 0.2rem;
@@ -227,11 +250,11 @@
         }
 
         .homepage-nws-weather__summary {
-          min-width: 6rem;
+          min-width: 3.375rem;
         }
 
         .homepage-nws-weather__metrics {
-          gap: 0.35rem;
+          gap: 0.2rem;
         }
       }
     `;
@@ -264,6 +287,17 @@
         </span>
       </span>
       <span class="homepage-nws-weather__metrics">
+        <span class="homepage-nws-weather__metric" data-role="solar-wrap">
+          <svg class="homepage-nws-weather__metric-icon homepage-nws-weather__metric-svg homepage-nws-weather__solar-icon" data-role="solar-icon" data-event="sunrise" viewBox="0 0 48 48" aria-hidden="true">
+            <g fill="none" stroke="#163d70" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
+              <path d="M24 4v4M10.5 9.5l3 3M37.5 9.5l-3 3M5 23h4M39 23h4"></path>
+              <circle cx="24" cy="23" r="10" fill="#ffd42a"></circle>
+              <path data-event="sunrise" d="M24 42V23M17.5 29.5 24 23l6.5 6.5" stroke-width="2.6"></path>
+              <path data-event="sunset" d="M24 23v19M17.5 35.5 24 42l6.5-6.5" stroke-width="2.6"></path>
+            </g>
+          </svg>
+          <span data-role="solar-time">--</span>
+        </span>
         <span class="homepage-nws-weather__metric" data-role="humidity-wrap">
           <svg class="homepage-nws-weather__metric-icon homepage-nws-weather__metric-svg" viewBox="0 0 48 48" aria-hidden="true">
             <defs>
@@ -372,6 +406,98 @@
     return period.isDaytime ? "clear-day" : "clear-night";
   }
 
+  function datePartsInTimeZone(date, timeZone) {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+    }).formatToParts(date);
+    const values = Object.fromEntries(parts.map((part) => [part.type, Number(part.value)]));
+
+    return {
+      year: values.year,
+      month: values.month,
+      day: values.day,
+    };
+  }
+
+  function solarEventsForDate(year, month, day) {
+    const dayOfYear = Math.floor((Date.UTC(year, month - 1, day) - Date.UTC(year, 0, 0)) / 86400000);
+    const fractionalYear = (2 * Math.PI * (dayOfYear - 1)) / 365;
+    const equationOfTime =
+      229.18 *
+      (0.000075 +
+        0.001868 * Math.cos(fractionalYear) -
+        0.032077 * Math.sin(fractionalYear) -
+        0.014615 * Math.cos(2 * fractionalYear) -
+        0.040849 * Math.sin(2 * fractionalYear));
+    const declination =
+      0.006918 -
+      0.399912 * Math.cos(fractionalYear) +
+      0.070257 * Math.sin(fractionalYear) -
+      0.006758 * Math.cos(2 * fractionalYear) +
+      0.000907 * Math.sin(2 * fractionalYear) -
+      0.002697 * Math.cos(3 * fractionalYear) +
+      0.00148 * Math.sin(3 * fractionalYear);
+    const latitudeRadians = (latitude * Math.PI) / 180;
+    const zenithRadians = (90.833 * Math.PI) / 180;
+    const hourAngleCosine =
+      Math.cos(zenithRadians) / (Math.cos(latitudeRadians) * Math.cos(declination)) -
+      Math.tan(latitudeRadians) * Math.tan(declination);
+
+    if (hourAngleCosine < -1 || hourAngleCosine > 1) {
+      return { sunrise: null, sunset: null };
+    }
+
+    const hourAngle = (Math.acos(hourAngleCosine) * 180) / Math.PI;
+    const midnightUtc = Date.UTC(year, month - 1, day);
+    const atUtcMinutes = (minutes) => new Date(midnightUtc + minutes * 60000);
+
+    return {
+      sunrise: atUtcMinutes(720 - 4 * (longitude + hourAngle) - equationOfTime),
+      sunset: atUtcMinutes(720 - 4 * (longitude - hourAngle) - equationOfTime),
+    };
+  }
+
+  function nextSolarEvent(now = new Date()) {
+    if (!hasCoordinates) {
+      return null;
+    }
+
+    const localDate = datePartsInTimeZone(now, state.timeZone);
+    const firstDate = Date.UTC(localDate.year, localDate.month - 1, localDate.day);
+    const format = new Intl.DateTimeFormat([], {
+      timeZone: state.timeZone,
+      hour: "numeric",
+      minute: "2-digit",
+    });
+
+    for (let offset = 0; offset <= 370; offset += 1) {
+      const candidateDate = new Date(firstDate + offset * 86400000);
+      const events = solarEventsForDate(
+        candidateDate.getUTCFullYear(),
+        candidateDate.getUTCMonth() + 1,
+        candidateDate.getUTCDate(),
+      );
+      const next = [
+        events.sunrise && { type: "sunrise", date: events.sunrise },
+        events.sunset && { type: "sunset", date: events.sunset },
+      ]
+        .filter((event) => event && event.date > now)
+        .sort((a, b) => a.date - b.date)[0];
+
+      if (next) {
+        return {
+          ...next,
+          time: format.format(next.date),
+        };
+      }
+    }
+
+    return null;
+  }
+
   function normalize(forecast, hourly) {
     const forecastPeriods = forecast?.properties?.periods || [];
     const hourlyPeriod = hourly?.properties?.periods?.[0] || forecastPeriods[0];
@@ -420,12 +546,15 @@
       return;
     }
 
+    const solarEvent = data.solarEvent || nextSolarEvent();
+
     setText("temperature", `${data.temperature}°`);
     setText("high", `${data.high}°`);
     setText("low", `${data.low}°`);
     setText("humidity", data.humidity === null ? "--" : `${data.humidity}%`);
     setText("precipitation", data.precipitation === null ? "--" : `${data.precipitation}%`);
     setText("wind", data.wind);
+    setText("solar-time", solarEvent?.time || "--");
 
     const icon = role("condition-icon");
 
@@ -433,12 +562,24 @@
       icon.dataset.icon = data.icon;
     }
 
+    const solarIcon = role("solar-icon");
+    const solarWrap = role("solar-wrap");
+
+    if (solarIcon && solarEvent) {
+      solarIcon.dataset.event = solarEvent.type;
+    }
+
+    if (solarWrap) {
+      solarWrap.hidden = !solarEvent;
+    }
+
     const unitName = data.temperatureUnit === "C" ? "Celsius" : "Fahrenheit";
     const updated = new Date(data.updatedAt).toLocaleTimeString([], {
       hour: "numeric",
       minute: "2-digit",
     });
-    const summary = `${state.locationLabel} weather: ${data.condition}. Current temperature ${data.temperature} degrees ${unitName}. High ${data.high} degrees ${unitName}, low ${data.low} degrees ${unitName}. Humidity ${data.humidity ?? "unavailable"} percent. Precipitation ${data.precipitation ?? "unavailable"} percent. Wind ${data.wind}.`;
+    const solarSummary = solarEvent ? ` Next ${solarEvent.type} at ${solarEvent.time}.` : "";
+    const summary = `${state.locationLabel} weather: ${data.condition}. Current temperature ${data.temperature} degrees ${unitName}. High ${data.high} degrees ${unitName}, low ${data.low} degrees ${unitName}. Humidity ${data.humidity ?? "unavailable"} percent. Precipitation ${data.precipitation ?? "unavailable"} percent. Wind ${data.wind}.${solarSummary}`;
     const title = [
       data.detailedForecast,
       `${stale ? "Cached NWS forecast from" : "NWS forecast updated"} ${updated}`,
@@ -452,6 +593,14 @@
     role("humidity-wrap")?.setAttribute("title", `Humidity ${data.humidity ?? "unavailable"}%`);
     role("precipitation-wrap")?.setAttribute("title", `Precipitation ${data.precipitation ?? "unavailable"}%`);
     role("wind-wrap")?.setAttribute("title", `Wind ${data.wind}`);
+    solarWrap?.setAttribute("title", solarEvent ? `Next ${solarEvent.type} ${solarEvent.time}` : "");
+
+    window.clearTimeout(state.solarTimer);
+
+    if (solarEvent?.date) {
+      const delay = Math.min(Math.max(solarEvent.date - Date.now() + 1000, 1000), 2147483647);
+      state.solarTimer = window.setTimeout(() => render(data, stale), delay);
+    }
   }
 
   function readStorage(key) {
@@ -537,8 +686,14 @@
 
     const cached = readStorage(CONFIG.endpointCacheKey);
 
-    if (cached?.forecast && cached?.hourly && Date.now() - cached.updatedAt <= CONFIG.endpointCacheMs) {
+    if (
+      cached?.forecast &&
+      cached?.hourly &&
+      (configuredTimeZone || validTimeZone(cached.timeZone)) &&
+      Date.now() - cached.updatedAt <= CONFIG.endpointCacheMs
+    ) {
       state.locationLabel = userConfig.locationLabel || cached.locationLabel || state.locationLabel;
+      state.timeZone = configuredTimeZone || validTimeZone(cached.timeZone) || state.timeZone;
       return cached;
     }
 
@@ -548,6 +703,7 @@
         forecast: point?.properties?.forecast,
         hourly: point?.properties?.forecastHourly,
         locationLabel: locationFromPoint(point),
+        timeZone: validTimeZone(point?.properties?.timeZone),
         updatedAt: Date.now(),
       };
 
@@ -556,12 +712,14 @@
       }
 
       state.locationLabel = userConfig.locationLabel || endpoints.locationLabel || state.locationLabel;
+      state.timeZone = configuredTimeZone || endpoints.timeZone || state.timeZone;
       writeStorage(CONFIG.endpointCacheKey, endpoints);
       return endpoints;
     } catch (error) {
       if (cached?.forecast && cached?.hourly) {
         console.warn(`[${NAMESPACE}] Point lookup failed; using cached grid metadata.`, error);
         state.locationLabel = userConfig.locationLabel || cached.locationLabel || state.locationLabel;
+        state.timeZone = configuredTimeZone || validTimeZone(cached.timeZone) || state.timeZone;
         return cached;
       }
 
